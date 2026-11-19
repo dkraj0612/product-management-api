@@ -68,7 +68,7 @@ function createProduct(data) {
     throw new Error(errors.join('; '));
   }
 
-  const existingSku = Array.from(products.values()).find(p => p.sku === data.sku);
+  const existingSku = Array.from(products.values()).find(p => p.sku === data.sku && !p.archivedAt);
   if (existingSku) {
     throw new Error('sku must be unique');
   }
@@ -82,7 +82,8 @@ function createProduct(data) {
     price: Number(data.price.toFixed(2)),
     stock: data.stock || 0,
     status: data.status || 'active',
-    createdAt: new Date()
+    createdAt: new Date(),
+    archivedAt: null
   };
 
   products.set(product.id, product);
@@ -90,7 +91,7 @@ function createProduct(data) {
 }
 
 function findAll(filters = {}) {
-  let result = Array.from(products.values());
+  let result = Array.from(products.values()).filter(p => !p.archivedAt);
 
   if (filters.category) {
     result = result.filter(p => p.category === filters.category);
@@ -108,11 +109,16 @@ function findAll(filters = {}) {
     result = result.filter(p => p.price <= filters.maxPrice);
   }
 
+  if (filters.inStock === true) {
+    result = result.filter(p => p.stock > 0);
+  } else if (filters.inStock === false) {
+    result = result.filter(p => p.stock === 0);
+  }
+
   if (filters.search) {
     const searchLower = filters.search.toLowerCase();
     result = result.filter(p =>
       p.name.toLowerCase().includes(searchLower) ||
-      p.sku.toLowerCase().includes(searchLower) ||
       p.description.toLowerCase().includes(searchLower)
     );
   }
@@ -121,21 +127,25 @@ function findAll(filters = {}) {
 }
 
 function findById(id) {
-  return products.get(id) || null;
+  const product = products.get(id);
+  if (!product || product.archivedAt) {
+    return null;
+  }
+  return product;
 }
 
 function findBySku(sku) {
-  return Array.from(products.values()).find(p => p.sku === sku) || null;
+  return Array.from(products.values()).find(p => p.sku === sku && !p.archivedAt) || null;
 }
 
 function updateProduct(id, patch) {
   const product = products.get(id);
-  if (!product) {
+  if (!product || product.archivedAt) {
     return null;
   }
 
   if (patch.sku !== undefined && patch.sku !== product.sku) {
-    const existingSku = Array.from(products.values()).find(p => p.sku === patch.sku && p.id !== id);
+    const existingSku = Array.from(products.values()).find(p => p.sku === patch.sku && p.id !== id && !p.archivedAt);
     if (existingSku) {
       throw new Error('sku must be unique');
     }
@@ -151,6 +161,7 @@ function updateProduct(id, patch) {
     ...patch,
     id: product.id,
     createdAt: product.createdAt,
+    archivedAt: product.archivedAt,
     price: patch.price !== undefined ? Number(patch.price.toFixed(2)) : product.price
   };
 
@@ -160,11 +171,22 @@ function updateProduct(id, patch) {
 
 function deleteProduct(id) {
   const product = products.get(id);
-  if (!product) {
+  if (!product || product.archivedAt) {
     return false;
   }
-  products.delete(id);
+  product.archivedAt = new Date();
+  products.set(id, product);
   return true;
+}
+
+function restoreProduct(id) {
+  const product = products.get(id);
+  if (!product || !product.archivedAt) {
+    return null;
+  }
+  product.archivedAt = null;
+  products.set(id, product);
+  return product;
 }
 
 export default {
@@ -173,5 +195,6 @@ export default {
   findBySku,
   create: createProduct,
   update: updateProduct,
-  delete: deleteProduct
+  delete: deleteProduct,
+  restore: restoreProduct
 };
