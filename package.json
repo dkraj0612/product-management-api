@@ -1,12 +1,18 @@
 {
   "name": "product-management-api",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Product Management REST API",
+  "type": "module",
+  "main": "src/index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
   },
   "keywords": [],
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.18.2",
+    "uuid": "^8.3.2"
+  }
 }
